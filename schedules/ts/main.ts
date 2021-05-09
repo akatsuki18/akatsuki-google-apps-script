@@ -18,61 +18,44 @@ function addRow() {
   sheet.getRange(lastRow, 9).copyTo(sheet.getRange(copyRow, 9)); // opponent_team_name
 }
 
-function createTable() {
-  // Replace this value with the project ID listed in the Google
-  // Cloud Platform project.
-  const projectId: string = 'nifty-bindery-293409';
-  // Create a dataset in the BigQuery UI (https://bigquery.cloud.google.com)
-  // and enter its ID below.
+function save() {
+  let scheduleId: string = Browser.inputBox("schedule_id を入力してください", Browser.Buttons.OK_CANCEL);
+  const sheet: any = SpreadsheetApp.getActive().getSheetByName('schedules');
+  const row: number = findRow(sheet, scheduleId, 1);
   const datasetId: string = 'goldpony';
-
   const tableId: string = 'schedules';
-  const sheet: any = SpreadsheetApp.getActive().getSheetByName("schedules");
   
-  // Create the table.
-  let table: any = {
-    tableReference: {
-      projectId: projectId,
-      datasetId: datasetId,
-      tableId: tableId
-    },
-    schema: {
-      fields: [
-        {name: 'game_date', type: 'DATE'},
-        {name: 'start_time', type: 'STRING'},
-        {name: 'end_time', type: 'STRING'},
-        {name: 'stadium_id', type: 'INTEGER'},
-        {name: 'stadium_name', type: 'STRING'},
-        {name: 'map_url', type: 'STRING'},
-        {name: 'opponent_team_id', type: 'INTEGER'},
-        {name: 'opponent_team_name', type: 'STRING'}
-      ]
-    }
-  };
+  let gameDate: string = sheet.getRange(`B${row}`).getValue();
+  let startTime: string = sheet.getRange(`C${row}`).getValue();
+  let endTime: string = sheet.getRange(`D${row}`).getValue();
+  let stadiumId: number = sheet.getRange(`E${row}`).isBlank() ? null : sheet.getRange(`E${row}`).getValue();
+  let stadiumName: string = sheet.getRange(`F${row}`).isBlank() ? null : sheet.getRange(`F${row}`).getValue();
+  if (stadiumName !== null) stadiumName = "${stadiumName}";
+  let mapUrl: string = sheet.getRange(`G${row}`).isBlank() ? null : sheet.getRange(`G${row}`).getValue();
+  if (mapUrl !== null) mapUrl = "${mapUrl}";
+  let opponentTeamId: number = sheet.getRange(`H${row}`).isBlank() ? null : sheet.getRange(`H${row}`).getValue();
+  let opponentTeamName: string = sheet.getRange(`I${row}`).isBlank() ? null : sheet.getRange(`I${row}`).getValue();
+  if (opponentTeamName !== null) opponentTeamName = "${opponentTeamName}";
 
-  const bigqueryTables: any = Bigquery.Tables;
-  try{
-    bigqueryTables.remove(projectId, datasetId, tableId); 
-  } catch(e) {}
-  bigqueryTables.insert(table, projectId, datasetId);
-
-  let range: any = sheet.getDataRange();
-  let csv: any = convCsv(range);
-  let blob = Utilities.newBlob(csv).setContentType('application/octet-stream');
-  let job = {
-    configuration: {
-      load: {
-        destinationTable: {
-          projectId: projectId,
-          datasetId: datasetId,
-          tableId: tableId
-        },
-        skipLeadingRows: 1
-      }
-    }
+  const projectId: string = 'nifty-bindery-293409';
+  const query: string = `#StandardSQL \n delete from ${datasetId}.${tableId} where schedule_id = ${scheduleId};INSERT INTO ${datasetId}.${tableId} (schedule_id, game_date, start_time, end_time, stadium_id, stadium_name, map_url, opponent_team_id, opponent_team_name) values (${scheduleId}, "${gameDate}", "${startTime}", "${endTime}", ${stadiumId}, ${stadiumName}, ${mapUrl}, ${opponentTeamId}, ${opponentTeamName});`;
+  let request = {
+    query: query
   };
   const bigqueryJobs: any = Bigquery.Jobs;
-  job = bigqueryJobs.insert(job, projectId, blob);
+  let queryResults: any = bigqueryJobs.query(request, projectId);
+  queryResults.jobReference.jobId;
+}
+
+function findRow(sheet: any, val: string, col: number){
+  let dat: string = sheet.getDataRange().getValues(); //受け取ったシートのデータを二次元配列に取得
+
+  for(var i=1;i<dat.length;i++){
+    if(String(dat[i][col-1]) === val){
+      return i+1;
+    }
+  }
+  return 0;
 }
 
 function convCsv(range: any) {
@@ -107,6 +90,6 @@ function onOpen() {
     .getActiveSpreadsheet()
     .addMenu('データ登録', [
       {name: '行追加', functionName: 'addRow'},
-      {name: '保存', functionName: 'createTable'},
+      {name: '保存', functionName: 'save'},
     ]);
 }
