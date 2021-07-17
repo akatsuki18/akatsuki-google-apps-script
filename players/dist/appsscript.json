@@ -3,9 +3,16 @@
   "dependencies": {
     "enabledAdvancedServices": [
       {
-        "userSymbol": "Bigquery",
+        "userSymbol": "BigQuery",
         "version": "v2",
         "serviceId": "bigquery"
+      }
+    ],
+    "libraries": [
+      {
+        "userSymbol": "FirestoreApp",
+        "version": "33",
+        "libraryId": "1VUSl4b1r1eoNcRWotZM3e87ygkxvXltOgyDZhixqncz9lQ3MjfT1iKFw"
       }
     ]
   },
