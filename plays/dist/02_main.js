@@ -51,6 +51,24 @@ async function insertPlays(gameId) {
   await deleteFirestoreDocument(tableId, 'game_id', gameId);
   await deleteFirestoreDocument('playVideos', 'game_id', gameId);
 
+  let lastVideoQuery = `
+    select
+      video_id
+    from
+      ${datasetId}.plays
+    where
+      video_id is not null
+    order by
+      video_id desc
+    limit 1
+  `;
+
+  let records = getQueryResult(lastVideoQuery);
+  records.shift();
+
+  const lastVideoId = records[0][0];
+  let videoId = parseInt(lastVideoId);
+
   let values = [];
   let data;
   rows.forEach(function(row) {
@@ -67,8 +85,13 @@ async function insertPlays(gameId) {
     let rbi = sheet.getRange(`K${Number(row)}`).getValue();
     let steal = sheet.getRange(`L${Number(row)}`).getValue();
     let video_url = sheet.getRange(`M${Number(row)}`).getValue();
+    let video_id = null;
+    if (video_url !== '') {
+      videoId = videoId + 1;
+      video_id = videoId;
+    }
 
-    values.push(`(${gameId}, ${playerId}, "${playerName}", ${sort}, ${inning}, ${batting_order}, ${turn}, "${direction}", "${result}", ${run}, ${rbi}, ${steal}, "${video_url}")`);
+    values.push(`(${gameId}, ${playerId}, "${playerName}", ${sort}, ${inning}, ${batting_order}, ${turn}, "${direction}", "${result}", ${run}, ${rbi}, ${steal}, "${video_url}", ${video_id})`);
     let query = `SELECT player_id, first_name, last_name, player_no, photo_url FROM ${datasetId}.players WHERE player_id = ${playerId}`;
     data = getQueryResult(query);
 
@@ -94,17 +117,18 @@ async function insertPlays(gameId) {
       'rbi': parseInt(rbi),
       'steal': parseInt(steal),
       'video_url': video_url,
+      'id': video_id,
     };
     firestore.createDocument(tableId, record);
 
-    if (record['video_url'] !== '') firestore.createDocument('playVideos', record);
+    if (video_url !== '') firestore.createDocument('playVideos', record);
   });
 
   const insertQuery = `
     #StandardSQL \n
     delete from ${datasetId}.${tableId} where game_id = ${gameId};
     INSERT INTO ${datasetId}.${tableId} 
-    (game_id, player_id, player_name, sort, inning, batting_order, turn, direction, result, run, rbi, steal, video_url)
+    (game_id, player_id, player_name, sort, inning, batting_order, turn, direction, result, run, rbi, steal, video_url, video_id)
     values ${values.join()};
   `;
   let insertRequest = {
